@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local environment / secrets
+.env
+
+# External data / large artifacts
+data/
+models/
+results/predictions/
+
+# Model checkpoints
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# macOS
+.DS_Store

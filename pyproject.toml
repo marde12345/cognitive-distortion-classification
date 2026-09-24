@@ -1,0 +1,6 @@
+[project]
+name = "cognitive-distortion-classification"
+version = "0.1.0"
+description = "Thesis research project on cognitive distortion classification"
+requires-python = ">=3.11"
+dependencies = []
