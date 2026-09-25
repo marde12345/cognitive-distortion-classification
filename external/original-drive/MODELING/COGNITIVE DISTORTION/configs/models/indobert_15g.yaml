@@ -1,0 +1,9 @@
+model_name: indobert_15g
+model_type: transformer
+hf_model_id: cahya/bert-base-indonesian-1.5G
+training:
+  batch_size: 16
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  num_epochs: 5

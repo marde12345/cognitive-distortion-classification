@@ -1,0 +1,25 @@
+paths:
+  processed_dataset_dir: external/original-drive/DATASETS/PROCESSED DATASETS/COGNITIVE DISTORTION
+  models_root: models
+  results_root: results
+
+data:
+  text_column: "TEXT"
+  label_column: "label_11"
+  id_column: "sentence_id"
+  group_column: "group_id"
+  num_labels: 11
+  max_seq_length: 128
+
+training:
+  seed: 42
+  num_epochs: 5
+  early_stopping_patience: 2
+  metric_for_best_model: "macro_f1"
+  greater_is_better: true
+  class_weighted_loss: true
+  fp16: true
+
+eval:
+  batch_size: 32
+  save_predictions: true

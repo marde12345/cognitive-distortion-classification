@@ -11,7 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC, SVC
 from gensim.models import Word2Vec
 
-sys.path.insert(0, "/content/drive/MyDrive/THESIS/MODELING/COGNITIVE DISTORTION/src")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from loader import get_fold_data, get_texts_labels
 from metrics import compute_metrics, average_metrics
 import config_utils as cu

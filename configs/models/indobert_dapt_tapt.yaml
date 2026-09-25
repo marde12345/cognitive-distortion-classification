@@ -1,0 +1,12 @@
+model_name: indobert_dapt_tapt
+# PLACEHOLDER - backbone belum final, tunggu hasil Fase B (Kategori B).
+# hf_model_id SEMENTARA, akan diupdate setelah keputusan backbone.
+model_type: transformer
+hf_model_id: indobenchmark/indobert-base-p1
+tapt_model_dir_template: /content/drive/MyDrive/THESIS/MODELING/COGNITIVE DISTORTION/models/indobert_dapt_tapt/fold_{fold}
+training:
+  batch_size: 16
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  num_epochs: 5

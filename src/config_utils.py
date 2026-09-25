@@ -8,7 +8,10 @@ import yaml
 import numpy as np
 
 
-MODELING_ROOT = "/content/drive/MyDrive/THESIS/MODELING/COGNITIVE DISTORTION"
+MODELING_ROOT = os.environ.get(
+    "COGNITIVE_DISTORTION_PROJECT_ROOT",
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+)
 CONFIG_DIR = os.path.join(MODELING_ROOT, "configs")
 MODELS_CONFIG_DIR = os.path.join(CONFIG_DIR, "models")
 

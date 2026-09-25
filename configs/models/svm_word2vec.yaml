@@ -1,0 +1,14 @@
+model_name: svm_word2vec
+model_type: sklearn
+model_class: SVC
+random_state: 42
+hyperparameters:
+  kernel: rbf
+  C: 1.0
+  gamma: scale
+  class_weight: balanced
+word2vec:
+  vector_size: 100
+  window: 5
+  min_count: 2
+  epochs: 20

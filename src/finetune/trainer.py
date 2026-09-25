@@ -14,7 +14,7 @@ from transformers import (
 )
 from sklearn.metrics import f1_score
 
-sys.path.insert(0, "/content/drive/MyDrive/THESIS/MODELING/COGNITIVE DISTORTION/src")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config_utils as cu
 
 
