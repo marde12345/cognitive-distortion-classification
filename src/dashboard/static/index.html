@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Transformer Sweep Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --navy-900: #0b1626;
+    --navy-800: #12233d;
+    --navy-700: #1a2f4f;
+    --navy-600: #24446f;
+    --blue-500: #3b6fb6;
+    --blue-400: #5a8bd1;
+    --bg: #f4f6fa;
+    --panel: #ffffff;
+    --border: #d7deea;
+    --text: #16233a;
+    --text-muted: #5c6b84;
+    --ok: #1f7a4c;
+    --ok-bg: #e5f5ec;
+    --fail: #a3312a;
+    --fail-bg: #fbe9e7;
+    --run: #b5810a;
+    --run-bg: #fdf2dc;
+    --pending: #6b7688;
+    --pending-bg: #eef1f6;
+    --skip: #6b5aa8;
+    --skip-bg: #ece8f7;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  header {
+    background: var(--navy-900);
+    color: #e8edf6;
+    padding: 18px 28px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 {
+    font-size: 17px;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  header .sub {
+    color: #9db2d0;
+    font-size: 12.5px;
+  }
+  #status-banner {
+    display: none;
+    background: var(--run-bg);
+    color: #7a5a05;
+    padding: 6px 28px;
+    font-size: 12.5px;
+    border-bottom: 1px solid #eddca0;
+  }
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  section h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--navy-700);
+    margin: 0 0 14px;
+    font-weight: 700;
+  }
+  .stat-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .stat {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 10px 14px;
+    min-width: 108px;
+    background: #fbfcfe;
+  }
+  .stat .label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+  }
+  .stat .value {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--navy-800);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.estimate .value { color: var(--text-muted); font-weight: 600; }
+  .note {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  tbody tr:hover { background: #f7f9fc; cursor: default; }
+  tr.clickable:hover { cursor: pointer; background: #eef3fb; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge.completed { color: var(--ok); background: var(--ok-bg); }
+  .badge.failed { color: var(--fail); background: var(--fail-bg); }
+  .badge.running { color: var(--run); background: var(--run-bg); }
+  .badge.pending { color: var(--pending); background: var(--pending-bg); }
+  .badge.skipped { color: var(--skip); background: var(--skip-bg); }
+  .matrix-wrap { overflow-x: auto; }
+  .matrix td, .matrix th { text-align: center; }
+  .matrix td.model-name, .matrix th.model-name { text-align: left; }
+  .cell {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .cell.completed { background: var(--ok-bg); color: var(--ok); }
+  .cell.failed { background: var(--fail-bg); color: var(--fail); }
+  .cell.running { background: var(--run-bg); color: var(--run); }
+  .cell.pending { background: var(--pending-bg); color: var(--pending); }
+  .cell.skipped { background: var(--skip-bg); color: var(--skip); }
+  select, button {
+    font: inherit;
+    padding: 5px 9px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--text);
+  }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 11.5px; color: var(--text-muted); }
+  .legend span.dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+  #run-detail-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 380px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    box-shadow: -6px 0 18px rgba(10, 20, 40, 0.12);
+    padding: 20px;
+    overflow-y: auto;
+    z-index: 20;
+  }
+  #run-detail-panel h3 { margin-top: 0; font-size: 14px; color: var(--navy-800); }
+  #run-detail-panel dl { margin: 0; }
+  #run-detail-panel dt { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 10px; }
+  #run-detail-panel dd { margin: 2px 0 0; font-size: 13.5px; font-weight: 600; }
+  #run-detail-close { float: right; cursor: pointer; border: none; background: none; font-size: 16px; color: var(--text-muted); }
+  footer {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Transformer Sweep Dashboard</h1>
+    <div class="sub">Read-only monitor · reads results/logs &amp; results/metrics</div>
+  </div>
+  <div class="sub" id="last-updated">—</div>
+</header>
+<div id="status-banner">Updating… waiting for a fresh manifest read.</div>
+
+<main>
+
+  <section id="overview-section">
+    <h2>Sweep Overview</h2>
+    <div id="overview-headline" style="font-size:15px; font-weight:600; margin-bottom:12px; color: var(--navy-800);"></div>
+    <div class="stat-row" id="overview-stats"></div>
+    <div class="note" id="overview-note"></div>
+  </section>
+
+  <section>
+    <h2>Model × Fold Matrix</h2>
+    <div class="matrix-wrap">
+      <table class="matrix" id="matrix-table"></table>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--ok)"></span>completed</span>
+      <span><span class="dot" style="background:var(--run)"></span>running</span>
+      <span><span class="dot" style="background:var(--fail)"></span>failed</span>
+      <span><span class="dot" style="background:var(--pending)"></span>pending</span>
+      <span><span class="dot" style="background:var(--skip)"></span>skipped</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Completed Runs</h2>
+    <table id="completed-table">
+      <thead>
+        <tr><th>Model</th><th>Fold</th><th>Runtime</th><th>Accuracy</th><th>Macro-F1</th><th>Weighted-F1</th><th>Status</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="note">Sorted by execution order, not by metric value. This is not a leaderboard.</div>
+  </section>
+
+  <section>
+    <h2>Model Detail</h2>
+    <div style="margin-bottom:14px;">
+      <label class="note" for="model-select">Model: </label>
+      <select id="model-select"></select>
+    </div>
+    <div class="two-col">
+      <div>
+        <table id="model-fold-table">
+          <thead>
+            <tr><th>Fold</th><th>Runtime</th><th>Accuracy</th><th>Macro-F1</th><th>Weighted-F1</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="note" style="margin-top:12px; font-weight:600;">Cross-fold descriptive statistics</div>
+        <table id="model-stats-table"></table>
+      </div>
+      <div>
+        <label class="note" for="fold-select">Training history for fold: </label>
+        <select id="fold-select"></select>
+        <table id="history-table">
+          <thead><tr><th>Epoch</th><th>Train loss</th><th>Val macro-F1</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Local research dashboard · does not start, stop, or modify the training sweep · statuses and metrics are read directly from experiment artifacts on disk.
+</footer>
+
+<div id="run-detail-panel">
+  <button id="run-detail-close">✕</button>
+  <h3 id="run-detail-title">Run detail</h3>
+  <dl id="run-detail-body"></dl>
+</div>
+
+<script>
+const POLL_FALLBACK_MS = 5000;
+let currentState = null;
+let modelDetailCache = {};
+
+function fmtSeconds(s) {
+  if (s === null || s === undefined) return "—";
+  if (s < 60) return s.toFixed(1) + "s";
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s % 60);
+  return `${m}m ${rem}s`;
+}
+function fmtNum(x, digits = 4) {
+  if (x === null || x === undefined) return "—";
+  return Number(x).toFixed(digits);
+}
+function badge(status) {
+  return `<span class="badge ${status}">${status}</span>`;
+}
+function cell(status) {
+  const short = {completed: "✓", failed: "✕", running: "…", pending: "·", skipped: "—"}[status] || "?";
+  return `<span class="cell ${status}" title="${status}">${short}</span>`;
+}
+
+async function fetchState() {
+  const res = await fetch("/api/state", {cache: "no-store"});
+  return res.json();
+}
+
+function renderOverview(state) {
+  const ov = state.overview;
+  const banner = document.getElementById("status-banner");
+  banner.style.display = state.manifest_stale ? "block" : "none";
+  if (state.manifest_stale && state.manifest_error) {
+    banner.textContent = `Updating… manifest read failed (${state.manifest_error}). Showing last known good state.`;
+  }
+
+  if (!ov) {
+    document.getElementById("overview-headline").textContent = "Waiting for sweep manifest…";
+    document.getElementById("overview-stats").innerHTML = "";
+    document.getElementById("overview-note").textContent = "";
+    return;
+  }
+
+  document.getElementById("overview-headline").textContent =
+    `${ov.completed_runs} / ${ov.total_runs} completed`;
+
+  const stats = [
+    ["Completed", ov.completed_runs],
+    ["Running", ov.running_runs],
+    ["Failed", ov.failed_runs],
+    ["Skipped", ov.skipped_runs],
+    ["Pending", ov.pending_runs],
+    ["Device", ov.device ?? "—"],
+    ["Models", ov.total_models],
+    ["Folds", ov.total_folds],
+    ["Avg runtime (completed)", fmtSeconds(ov.avg_runtime_seconds)],
+  ];
+  document.getElementById("overview-stats").innerHTML = stats.map(([label, value]) =>
+    `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`
+  ).join("");
+
+  let note = "Measured values come directly from results/logs/transformer_sweep.json.";
+  if (ov.total_elapsed_seconds_measured != null) {
+    note += ` Sum of completed-run elapsed time so far: ${fmtSeconds(ov.total_elapsed_seconds_measured)} (measured, not wall-clock across the whole sweep).`;
+  }
+  document.getElementById("overview-note").textContent = note;
+}
+
+function renderMatrix(state) {
+  const table = document.getElementById("matrix-table");
+  if (!state.matrix || state.matrix.length === 0) {
+    table.innerHTML = "<tr><td>No manifest data yet.</td></tr>";
+    return;
+  }
+  const folds = state.folds || [];
+  let thead = "<thead><tr><th class='model-name'>Model</th>" + folds.map(f => `<th>${f}</th>`).join("") + "</tr></thead>";
+  let rows = state.matrix.map(row => {
+    const cells = row.cells.map(c => `<td>${cell(c.status)}</td>`).join("");
+    return `<tr><td class="model-name">${row.model}</td>${cells}</tr>`;
+  }).join("");
+  table.innerHTML = thead + "<tbody>" + rows + "</tbody>";
+}
+
+function renderCompletedTable(state) {
+  const tbody = document.querySelector("#completed-table tbody");
+  const rows = state.completed_runs || [];
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="note">No completed runs yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr class="clickable" data-model="${r.model}" data-fold="${r.fold}">
+      <td>${r.model}</td>
+      <td>${r.fold}</td>
+      <td>${fmtSeconds(r.elapsed_seconds)}</td>
+      <td>${fmtNum(r.accuracy)}</td>
+      <td>${fmtNum(r.macro_f1)}</td>
+      <td>${fmtNum(r.weighted_f1)}</td>
+      <td>${badge(r.status)}</td>
+    </tr>`).join("");
+  tbody.querySelectorAll("tr.clickable").forEach(tr => {
+    tr.addEventListener("click", () => showRunDetail(tr.dataset.model, tr.dataset.fold));
+  });
+}
+
+function populateModelSelect(state) {
+  const sel = document.getElementById("model-select");
+  const models = state.models || [];
+  const prev = sel.value;
+  sel.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join("");
+  if (models.includes(prev)) sel.value = prev;
+  else if (models.includes("indobert_15g")) sel.value = "indobert_15g";
+}
+
+async function loadModelDetail(model) {
+  const res = await fetch(`/api/model?model=${encodeURIComponent(model)}`, {cache: "no-store"});
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function renderModelDetail(detail) {
+  if (!detail) return;
+  const tbody = document.querySelector("#model-fold-table tbody");
+  tbody.innerHTML = detail.folds.map(f => `
+    <tr>
+      <td>${f.fold}</td>
+      <td>${fmtSeconds(f.elapsed_seconds)}</td>
+      <td>${fmtNum(f.accuracy)}</td>
+      <td>${fmtNum(f.macro_f1)}</td>
+      <td>${fmtNum(f.weighted_f1)}</td>
+    </tr>`).join("");
+
+  const stats = detail.cross_fold_stats;
+  const statsTable = document.getElementById("model-stats-table");
+  const metricRow = (label, m) => `<tr><td>${label}</td><td>mean ${fmtNum(m.mean)}</td><td>std ${fmtNum(m.std)}</td></tr>`;
+  statsTable.innerHTML = `<tbody>
+    ${metricRow("Accuracy", stats.accuracy)}
+    ${metricRow("Macro-F1", stats.macro_f1)}
+    ${metricRow("Weighted-F1", stats.weighted_f1)}
+    <tr><td colspan="3" class="note">n = ${stats.n_folds_with_metrics} / ${stats.n_folds} folds with metrics available</td></tr>
+  </tbody>`;
+
+  const foldSelect = document.getElementById("fold-select");
+  const prevFold = foldSelect.value;
+  foldSelect.innerHTML = detail.folds.map(f => `<option value="${f.fold}">${f.fold}</option>`).join("");
+  if (detail.folds.some(f => f.fold === prevFold)) foldSelect.value = prevFold;
+  renderHistory(detail);
+}
+
+function renderHistory(detail) {
+  const foldSelect = document.getElementById("fold-select");
+  const fold = foldSelect.value;
+  const row = detail.folds.find(f => f.fold === fold);
+  const tbody = document.querySelector("#history-table tbody");
+  if (!row || !row.history || row.history.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="note">No training history available.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = row.history.map(h => `
+    <tr><td>${h.epoch}</td><td>${fmtNum(h.train_loss)}</td><td>${fmtNum(h.val_macro_f1)}</td></tr>
+  `).join("");
+}
+
+async function showRunDetail(model, fold) {
+  const res = await fetch(`/api/run?model=${encodeURIComponent(model)}&fold=${encodeURIComponent(fold)}`, {cache: "no-store"});
+  const d = await res.json();
+  document.getElementById("run-detail-title").textContent = `${d.model} / ${d.fold}`;
+  const rows = [
+    ["Status", d.status ?? "—"],
+    ["Device", d.device ?? "—"],
+    ["Configured epochs", d.configured_epochs ?? "—"],
+    ["Completed epochs", d.completed_epochs ?? "—"],
+    ["Batch size", d.batch_size ?? "—"],
+    ["Max sequence length", d.max_seq_length ?? "—"],
+    ["Runtime", fmtSeconds(d.elapsed_seconds)],
+    ["Accuracy", fmtNum(d.accuracy)],
+    ["Macro-F1", fmtNum(d.macro_f1)],
+    ["Weighted-F1", fmtNum(d.weighted_f1)],
+    ["Predictions file", d.has_predictions ? "present" : "absent"],
+  ];
+  document.getElementById("run-detail-body").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  document.getElementById("run-detail-panel").style.display = "block";
+}
+document.getElementById("run-detail-close").addEventListener("click", () => {
+  document.getElementById("run-detail-panel").style.display = "none";
+});
+
+async function refreshModelDetail() {
+  const model = document.getElementById("model-select").value;
+  if (!model) return;
+  const detail = await loadModelDetail(model);
+  renderModelDetail(detail);
+}
+
+document.getElementById("model-select").addEventListener("change", refreshModelDetail);
+document.getElementById("fold-select").addEventListener("change", () => {
+  const model = document.getElementById("model-select").value;
+  loadModelDetail(model).then(renderModelDetail);
+});
+
+async function tick() {
+  try {
+    const state = await fetchState();
+    currentState = state;
+    renderOverview(state);
+    renderMatrix(state);
+    renderCompletedTable(state);
+
+    const modelsChanged = JSON.stringify((state.models || [])) !== JSON.stringify(window.__lastModels || []);
+    if (modelsChanged) {
+      window.__lastModels = state.models || [];
+      populateModelSelect(state);
+      await refreshModelDetail();
+    }
+
+    document.getElementById("last-updated").textContent =
+      "manifest: " + (state.manifest_created_at || "—") + (state.manifest_stale ? " (stale read)" : "");
+  } catch (e) {
+    document.getElementById("status-banner").style.display = "block";
+    document.getElementById("status-banner").textContent = "Updating… could not reach dashboard server.";
+  }
+}
+
+tick();
+setInterval(tick, POLL_FALLBACK_MS);
+</script>
+</body>
+</html>
