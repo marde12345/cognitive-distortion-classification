@@ -13,9 +13,24 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-from . import data_loader
+from . import analysis_loader, data_loader
 
 KNOWN_STATUSES = {"completed", "running", "failed", "pending", "skipped"}
+
+# Experiment/configuration order (configs/models/*.yaml filename order).
+# This is NOT a performance ranking; the dashboard must present models in
+# this fixed order everywhere and say so explicitly.
+MODEL_ORDER = (
+    "indobert_15g",
+    "indobert_base_p1",
+    "indobertweet",
+    "indoroberta_15g",
+    "mbert",
+    "nusabert",
+    "xlmr",
+)
+
+ANOMALOUS_RUNS = (("indobertweet", "fold_1"), ("mbert", "fold_3"))
 
 
 def _run_lookup(manifest: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
@@ -223,6 +238,93 @@ def build_run_detail(
     }
 
 
+def build_analysis_state(results_dir: Path) -> dict[str, Any]:
+    """Assemble the Phase 16 statistical-analysis section, from disk, as-is.
+
+    Every sub-artifact is read independently and failures are isolated:
+    a missing or malformed file only blanks out its own section (with an
+    explicit ``*_available: False`` / error string), it never prevents the
+    rest of the analysis (or the sweep-status section) from rendering.
+    Numbers are never recomputed or fabricated here — this function only
+    reshapes what Phase 16 already wrote into a shape the UI can render,
+    plus fixed plain-language copy that does not depend on the data.
+    """
+    aggregate = analysis_loader.load_aggregate_metrics(results_dir)
+    fold_metrics = analysis_loader.load_fold_metrics(results_dir)
+    per_class = analysis_loader.load_per_class_metrics(results_dir)
+    sensitivity = analysis_loader.load_anomaly_sensitivity(results_dir)
+    runtime = analysis_loader.load_runtime_analysis(results_dir)
+    stats_tests = analysis_loader.load_statistical_tests(results_dir)
+    plots = analysis_loader.available_plots(results_dir)
+
+    return {
+        "model_order": list(MODEL_ORDER),
+        "model_order_note": (
+            "Models are listed in experiment/configuration order, not "
+            "ranked by performance."
+        ),
+        "aggregate_metrics": aggregate.data,
+        "aggregate_metrics_available": aggregate.ok,
+        "aggregate_metrics_error": aggregate.error,
+        "fold_metrics": (fold_metrics.data or {}).get("rows") if fold_metrics.ok else None,
+        "fold_metrics_available": fold_metrics.ok,
+        "fold_metrics_error": fold_metrics.error,
+        "per_class_metrics": (per_class.data or {}).get("rows") if per_class.ok else None,
+        "per_class_metrics_available": per_class.ok,
+        "per_class_metrics_error": per_class.error,
+        "anomaly_sensitivity": sensitivity.data,
+        "anomaly_sensitivity_available": sensitivity.ok,
+        "anomaly_sensitivity_error": sensitivity.error,
+        "anomalous_runs": [{"model": m, "fold": f} for m, f in ANOMALOUS_RUNS],
+        "runtime_analysis": runtime.data,
+        "runtime_analysis_available": runtime.ok,
+        "runtime_analysis_error": runtime.error,
+        "statistical_tests": stats_tests.data,
+        "statistical_tests_available": stats_tests.ok,
+        "statistical_tests_error": stats_tests.error,
+        "available_plots": plots,
+        "plots_complete": len(plots) == len(analysis_loader.KNOWN_PLOTS),
+    }
+
+
+def build_live_demo_state(results_dir: Path) -> dict[str, Any]:
+    """Whether real, loadable model checkpoints exist.
+
+    ``models_dir`` is a sibling of ``results_dir`` in the project layout
+    (``<project>/models``, ``<project>/results``) — the dashboard is
+    normally launched with ``--results-dir results`` from the project
+    root, so ``results_dir.parent / "models"`` is the same ``models/``
+    directory the training pipeline would ever write a checkpoint into.
+    This function only checks for file existence; it never loads a model
+    or performs inference.
+    """
+    models_dir = results_dir.parent / "models"
+    checkpoint_files: list[str] = []
+    if models_dir.is_dir():
+        checkpoint_files = [str(p.relative_to(models_dir)) for p in models_dir.rglob("*") if p.is_file()]
+
+    available = len(checkpoint_files) > 0
+    return {
+        "checkpoint_available": available,
+        "checkpoint_files": checkpoint_files,
+        "message": (
+            "Live inference is available."
+            if available
+            else "Live inference is not available yet."
+        ),
+        "explanation": (
+            "A model checkpoint was found and could be loaded for inference."
+            if available
+            else (
+                "The experiments produced evaluation results and predictions, "
+                "but the trained model weights were not persisted for later "
+                "inference. This dashboard is prepared to support live "
+                "inference once a checkpoint is added."
+            )
+        ),
+    }
+
+
 def build_dashboard_state(
     results_dir: Path, previous_state: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -236,11 +338,18 @@ def build_dashboard_state(
     """
     manifest_result = data_loader.load_manifest(results_dir)
 
+    # Independent of manifest freshness: these read their own files under
+    # results/analysis/ and results/models/, and degrade on their own.
+    analysis = build_analysis_state(results_dir)
+    live_demo = build_live_demo_state(results_dir)
+
     if not manifest_result.ok:
         if previous_state is not None:
             stale = dict(previous_state)
             stale["manifest_stale"] = True
             stale["manifest_error"] = manifest_result.error
+            stale["analysis"] = analysis
+            stale["live_demo"] = live_demo
             return stale
         return {
             "manifest_stale": True,
@@ -248,6 +357,8 @@ def build_dashboard_state(
             "overview": None,
             "matrix": [],
             "completed_runs": [],
+            "analysis": analysis,
+            "live_demo": live_demo,
         }
 
     manifest = manifest_result.data
@@ -260,5 +371,7 @@ def build_dashboard_state(
         "completed_runs": build_completed_runs_table(results_dir, manifest),
         "models": manifest.get("models", []) or [],
         "folds": manifest.get("folds", []) or [],
+        "analysis": analysis,
+        "live_demo": live_demo,
     }
     return state
