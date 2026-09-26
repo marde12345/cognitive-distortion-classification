@@ -77,6 +77,50 @@
     padding: 18px 20px;
     margin-bottom: 20px;
   }
+  .plot-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .plot-grid img {
+    max-width: 100%;
+    width: 480px;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #fff;
+  }
+  details {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: var(--panel);
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--navy-700);
+  }
+  .anomaly-card {
+    border: 1px solid var(--fail);
+    background: var(--fail-bg);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+  }
+  .anomaly-card h4 { margin: 0 0 8px; }
+  .live-demo-disabled {
+    border: 1px solid var(--pending);
+    background: var(--pending-bg);
+    border-radius: 6px;
+    padding: 12px 16px;
+  }
+  @media (max-width: 640px) {
+    .plot-grid img { width: 100%; }
+    main { padding: 0 10px; }
+  }
   section h2 {
     font-size: 13px;
     text-transform: uppercase;
@@ -217,6 +261,27 @@
 
 <main>
 
+  <section id="live-demo-section">
+    <h2>Live Demo</h2>
+    <div id="live-demo-body" class="note">Checking…</div>
+  </section>
+
+  <section id="intro-section">
+    <h2>What is this experiment?</h2>
+    <p>
+      Seven language models were each evaluated on five different splits
+      ("folds") of the same dataset, producing 35 model/fold runs in
+      total. The goal is to compare how these models behave and how
+      consistent each one is across different data splits.
+    </p>
+    <p class="note">
+      The numbers on this page describe what happened during this
+      experiment. They do not automatically determine which model should
+      be selected for any downstream use — that remains a decision for a
+      person to make, informed by this evidence.
+    </p>
+  </section>
+
   <section id="overview-section">
     <h2>Sweep Overview</h2>
     <div id="overview-headline" style="font-size:15px; font-weight:600; margin-bottom:12px; color: var(--navy-800);"></div>
@@ -275,6 +340,91 @@
         </table>
       </div>
     </div>
+  </section>
+
+  <section id="model-comparison-section">
+    <h2>Model Comparison</h2>
+    <div class="note" id="model-order-note"></div>
+    <div class="two-col">
+      <table id="agg-metrics-table">
+        <thead>
+          <tr><th>Model</th><th>Macro-F1 mean</th><th>std</th><th>min</th><th>max</th><th>median</th><th>range</th><th>CV</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <table id="agg-metrics-secondary-table">
+        <thead>
+          <tr><th>Model</th><th>Accuracy mean ± std</th><th>Weighted-F1 mean ± std</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="plot-grid" id="model-comparison-plots"></div>
+  </section>
+
+  <section id="cross-fold-section">
+    <h2>Cross-Fold Stability</h2>
+    <p class="note">
+      A fold is one of several different data splits used to evaluate the
+      model. Looking across folds helps us see whether the observed
+      result changes substantially between splits. Five folds provide
+      useful experimental evidence, but they are still only five
+      observations.
+    </p>
+    <div class="plot-grid" id="cross-fold-plot"></div>
+  </section>
+
+  <section id="anomaly-section">
+    <h2>Anomalies</h2>
+    <p class="note">
+      Two runs behaved substantially differently from the other folds of
+      the same model. The available artifacts do not establish the root
+      cause — this is reported as an observation, not a diagnosis.
+    </p>
+    <div id="anomaly-cards"></div>
+  </section>
+
+  <section id="per-class-section">
+    <h2>Per-Class Analysis</h2>
+    <p class="note">
+      Macro-F1 gives each class equal importance when calculating the
+      average. Labels 9 and 10 have relatively low support (few examples),
+      so their per-class values are more sensitive to a small number of
+      predictions — interpret differences involving these two classes
+      cautiously.
+    </p>
+    <div class="plot-grid" id="per-class-plot"></div>
+  </section>
+
+  <section id="statistical-section">
+    <h2>Statistical Analysis</h2>
+    <div id="friedman-body" class="note"></div>
+  </section>
+
+  <section id="runtime-section">
+    <h2>Runtime</h2>
+    <p class="note">
+      Runtime tells us how long the training experiments took. It is a
+      different measurement from model quality — a faster or slower run
+      is not evidence of a better or worse model.
+    </p>
+    <table id="runtime-table">
+      <thead><tr><th>Model</th><th>Mean (s)</th><th>Min (s)</th><th>Max (s)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="plot-grid" id="runtime-plot"></div>
+  </section>
+
+  <section id="glossary-section">
+    <h2>Glossary</h2>
+    <details><summary>Model</summary>The neural network trained to recognize patterns in the text.</details>
+    <details><summary>Fold</summary>One of several data splits used to evaluate a model.</details>
+    <details><summary>Accuracy</summary>The percentage of predictions that were correct.</details>
+    <details><summary>Macro-F1</summary>An average performance score where every class receives equal weight.</details>
+    <details><summary>Weighted-F1</summary>An F1 score where classes with more examples have more influence.</details>
+    <details><summary>Standard deviation</summary>A measure of how much a result changes between folds.</details>
+    <details><summary>Anomaly</summary>A result that behaves very differently from the other runs.</details>
+    <details><summary>Confidence interval</summary>An estimate of uncertainty around an observed average. With only five folds, this estimate should be interpreted cautiously.</details>
   </section>
 
 </main>
@@ -490,6 +640,184 @@ document.getElementById("fold-select").addEventListener("change", () => {
   loadModelDetail(model).then(renderModelDetail);
 });
 
+function plotImg(name, alt) {
+  const img = document.createElement("img");
+  img.src = "/api/analysis/plots/" + encodeURIComponent(name);
+  img.alt = alt;
+  img.loading = "lazy";
+  return img;
+}
+
+function renderLiveDemo(state) {
+  const el = document.getElementById("live-demo-body");
+  const live = (state.live_demo) || {};
+  el.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "live-demo-disabled";
+  const strong = document.createElement("strong");
+  strong.textContent = live.message || "Live inference is not available yet.";
+  box.appendChild(strong);
+  const p = document.createElement("p");
+  p.className = "note";
+  p.style.marginTop = "6px";
+  p.textContent = live.explanation || "";
+  box.appendChild(p);
+  el.appendChild(box);
+}
+
+function fmtMaybe(x, digits) {
+  return (typeof x === "number") ? x.toFixed(digits === undefined ? 4 : digits) : "—";
+}
+
+function renderModelComparison(state) {
+  const analysis = state.analysis || {};
+  document.getElementById("model-order-note").textContent =
+    (analysis.model_order_note || "") +
+    " Order: " + (analysis.model_order || []).join(", ") + ".";
+
+  const aggBody = document.querySelector("#agg-metrics-table tbody");
+  const secBody = document.querySelector("#agg-metrics-secondary-table tbody");
+  aggBody.innerHTML = "";
+  secBody.innerHTML = "";
+
+  const agg = analysis.aggregate_metrics;
+  if (!analysis.aggregate_metrics_available || !agg) {
+    aggBody.innerHTML = "<tr><td colspan='8' class='note'>Aggregate metrics not available (" +
+      (analysis.aggregate_metrics_error || "missing") + ")</td></tr>";
+  } else {
+    (analysis.model_order || Object.keys(agg.models || {})).forEach(m => {
+      const v = (agg.models || {})[m];
+      if (!v) return;
+      const mf = v.macro_f1 || {};
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + m + "</td><td>" + fmtMaybe(mf.mean) + "</td><td>" + fmtMaybe(mf.std) +
+        "</td><td>" + fmtMaybe(mf.min) + "</td><td>" + fmtMaybe(mf.max) + "</td><td>" + fmtMaybe(mf.median) +
+        "</td><td>" + fmtMaybe(mf.range) + "</td><td>" + fmtMaybe(mf.cv) + "</td>";
+      aggBody.appendChild(tr);
+
+      const acc = v.accuracy || {}, wf1 = v.weighted_f1 || {};
+      const tr2 = document.createElement("tr");
+      tr2.innerHTML = "<td>" + m + "</td><td>" + fmtMaybe(acc.mean) + " ± " + fmtMaybe(acc.std) +
+        "</td><td>" + fmtMaybe(wf1.mean) + " ± " + fmtMaybe(wf1.std) + "</td>";
+      secBody.appendChild(tr2);
+    });
+  }
+
+  const plotsDiv = document.getElementById("model-comparison-plots");
+  plotsDiv.innerHTML = "";
+  ["01_macro_f1_mean_std.png", "02_accuracy_mean_std.png", "03_weighted_f1_mean_std.png"].forEach(name => {
+    if ((analysis.available_plots || []).includes(name)) plotsDiv.appendChild(plotImg(name, name));
+  });
+  if (!analysis.available_plots || analysis.available_plots.length === 0) {
+    plotsDiv.innerHTML = "<div class='note'>Plots not available yet.</div>";
+  }
+}
+
+function renderCrossFold(state) {
+  const analysis = state.analysis || {};
+  const div = document.getElementById("cross-fold-plot");
+  div.innerHTML = "";
+  if ((analysis.available_plots || []).includes("04_macro_f1_across_folds.png")) {
+    div.appendChild(plotImg("04_macro_f1_across_folds.png", "Macro-F1 across folds per model"));
+  } else {
+    div.innerHTML = "<div class='note'>Cross-fold plot not available yet.</div>";
+  }
+}
+
+function renderAnomalies(state) {
+  const analysis = state.analysis || {};
+  const container = document.getElementById("anomaly-cards");
+  container.innerHTML = "";
+  const sens = analysis.anomaly_sensitivity;
+  if (!analysis.anomaly_sensitivity_available || !sens) {
+    container.innerHTML = "<div class='note'>Anomaly sensitivity data not available (" +
+      (analysis.anomaly_sensitivity_error || "missing") + ")</div>";
+    return;
+  }
+  Object.keys(sens).forEach(key => {
+    const v = sens[key];
+    const card = document.createElement("div");
+    card.className = "anomaly-card";
+    const m = v.anomalous_run_metrics || {};
+    const off = v.official_5fold_macro_f1 || {};
+    const sensv = v.sensitivity_4fold_macro_f1_EXCLUDING_ANOMALY || {};
+    card.innerHTML = "<h4>" + key + "</h4>" +
+      "<div>Macro-F1: " + fmtMaybe(m.macro_f1) + " · Accuracy: " + fmtMaybe(m.accuracy) +
+      " · Weighted-F1: " + fmtMaybe(m.weighted_f1) + "</div>" +
+      "<div class='note' style='margin-top:6px;'>Official (5-fold, includes this run): mean=" +
+      fmtMaybe(off.mean) + " ± " + fmtMaybe(off.std) + "</div>" +
+      "<div class='note'><em>Sensitivity analysis — NOT the official result</em> (4-fold, excludes this run): mean=" +
+      fmtMaybe(sensv.mean) + " ± " + fmtMaybe(sensv.std) + "</div>" +
+      "<div class='note' style='margin-top:6px; font-weight:600;'>The available artifacts do not establish the root cause.</div>";
+    container.appendChild(card);
+  });
+}
+
+function renderPerClass(state) {
+  const analysis = state.analysis || {};
+  const div = document.getElementById("per-class-plot");
+  div.innerHTML = "";
+  if ((analysis.available_plots || []).includes("06_per_class_f1_heatmap.png")) {
+    div.appendChild(plotImg("06_per_class_f1_heatmap.png", "Per-class F1 heatmap"));
+  } else {
+    div.innerHTML = "<div class='note'>Per-class heatmap not available yet.</div>";
+  }
+}
+
+function renderStatistical(state) {
+  const analysis = state.analysis || {};
+  const el = document.getElementById("friedman-body");
+  const tests = analysis.statistical_tests;
+  if (!analysis.statistical_tests_available || !tests || !tests.friedman_test) {
+    el.textContent = "Statistical test results not available (" + (analysis.statistical_tests_error || "missing") + ").";
+    return;
+  }
+  const f = tests.friedman_test;
+  el.innerHTML =
+    "<div>Friedman test: chi-square = " + fmtMaybe(f.statistic, 2) + ", df = " + f.df +
+    ", p-value = " + fmtMaybe(f.p_value, 4) + "</div>" +
+    "<div style='margin-top:6px;'>This test checks whether the models' performance rankings differ " +
+    "systematically across the same five folds.</div>" +
+    "<div style='margin-top:6px;'>It does not identify which pair of models differs, it does not " +
+    "automatically select a model, and it is based on only five matched folds — the result should be " +
+    "interpreted cautiously.</div>";
+}
+
+function renderRuntime(state) {
+  const analysis = state.analysis || {};
+  const body = document.querySelector("#runtime-table tbody");
+  body.innerHTML = "";
+  const rt = analysis.runtime_analysis;
+  if (!analysis.runtime_analysis_available || !rt) {
+    body.innerHTML = "<tr><td colspan='4' class='note'>Runtime analysis not available (" +
+      (analysis.runtime_analysis_error || "missing") + ")</td></tr>";
+  } else {
+    (analysis.model_order || Object.keys(rt.per_model || {})).forEach(m => {
+      const v = (rt.per_model || {})[m];
+      if (!v) return;
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + m + "</td><td>" + fmtMaybe(v.mean, 1) + "</td><td>" + fmtMaybe(v.min, 1) +
+        "</td><td>" + fmtMaybe(v.max, 1) + "</td>";
+      body.appendChild(tr);
+    });
+  }
+  const div = document.getElementById("runtime-plot");
+  div.innerHTML = "";
+  if ((analysis.available_plots || []).includes("05_runtime_distribution.png")) {
+    div.appendChild(plotImg("05_runtime_distribution.png", "Runtime distribution per model"));
+  }
+}
+
+function renderAnalysisSections(state) {
+  renderLiveDemo(state);
+  renderModelComparison(state);
+  renderCrossFold(state);
+  renderAnomalies(state);
+  renderPerClass(state);
+  renderStatistical(state);
+  renderRuntime(state);
+}
+
 async function tick() {
   try {
     const state = await fetchState();
@@ -497,6 +825,7 @@ async function tick() {
     renderOverview(state);
     renderMatrix(state);
     renderCompletedTable(state);
+    renderAnalysisSections(state);
 
     const modelsChanged = JSON.stringify((state.models || [])) !== JSON.stringify(window.__lastModels || []);
     if (modelsChanged) {
