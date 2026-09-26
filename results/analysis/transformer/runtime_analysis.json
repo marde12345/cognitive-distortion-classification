@@ -1,0 +1,104 @@
+{
+  "per_model": {
+    "indobert_15g": {
+      "mean": 537.3,
+      "std": 55.04916893105652,
+      "std_ddof": 1,
+      "min": 510.12,
+      "max": 635.66,
+      "median": 513.08,
+      "range": 125.53999999999996,
+      "cv": 0.10245518133455524,
+      "n": 5
+    },
+    "indobert_base_p1": {
+      "mean": 523.2850000000001,
+      "std": 1.8808242873803993,
+      "std_ddof": 1,
+      "min": 520.61,
+      "max": 524.96,
+      "median": 523.785,
+      "range": 4.350000000000023,
+      "cv": 0.0035942637136176254,
+      "n": 4
+    },
+    "indobertweet": {
+      "mean": 485.448,
+      "std": 98.15064987049244,
+      "std_ddof": 1,
+      "min": 312.85,
+      "max": 558.76,
+      "median": 515.48,
+      "range": 245.90999999999997,
+      "cv": 0.20218571272410732,
+      "n": 5
+    },
+    "indoroberta_15g": {
+      "mean": 549.54,
+      "std": 27.523371886453162,
+      "std_ddof": 1,
+      "min": 535.97,
+      "max": 598.73,
+      "median": 538.35,
+      "range": 62.75999999999999,
+      "cv": 0.050084383095776765,
+      "n": 5
+    },
+    "mbert": {
+      "mean": 579.374,
+      "std": 24.450264415748144,
+      "std_ddof": 1,
+      "min": 566.62,
+      "max": 622.99,
+      "median": 569.9,
+      "range": 56.370000000000005,
+      "cv": 0.042201176469341295,
+      "n": 5
+    },
+    "nusabert": {
+      "mean": 534.9399999999999,
+      "std": 16.243397120060823,
+      "std_ddof": 1,
+      "min": 524.56,
+      "max": 563.63,
+      "median": 528.7,
+      "range": 39.07000000000005,
+      "cv": 0.030364895352863547,
+      "n": 5
+    },
+    "xlmr": {
+      "mean": 640.006,
+      "std": 29.622662439422967,
+      "std_ddof": 1,
+      "min": 622.37,
+      "max": 692.62,
+      "median": 627.64,
+      "range": 70.25,
+      "cv": 0.04628497613994707,
+      "n": 5
+    }
+  },
+  "overall": {
+    "mean": 550.77,
+    "std": 63.02567014296394,
+    "std_ddof": 1,
+    "min": 312.85,
+    "max": 692.62,
+    "median": 536.065,
+    "range": 379.77,
+    "cv": 0.11443192284068475,
+    "n": 34
+  },
+  "total_sweep_wall_clock_seconds": null,
+  "fastest_run": {
+    "model": "indobertweet",
+    "fold": "fold_1",
+    "elapsed_seconds": 312.85
+  },
+  "slowest_run": {
+    "model": "xlmr",
+    "fold": "fold_0",
+    "elapsed_seconds": 692.62
+  },
+  "note": "Runtime observations only. No model-quality inference should be drawn from these numbers."
+}

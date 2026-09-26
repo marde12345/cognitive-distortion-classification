@@ -1,0 +1,127 @@
+{
+  "friedman_test": {
+    "description": "Friedman test: non-parametric repeated-measures test across 7 models with fold as the matched/blocking factor (5 folds = 5 blocks). Tests whether the models' macro-F1 rank distributions differ across the same folds.",
+    "statistic": 18.599999999999994,
+    "df": 6,
+    "p_value": 0.004895310474498802,
+    "n_blocks_folds": 5,
+    "n_treatments_models": 7,
+    "caveat": "Only 5 matched folds (blocks) is a very small sample for this test; treat any conclusion, significant or not, as weak evidence, not proof. Does NOT establish which specific pairs of models differ, only whether the 7 models' fold-rank distributions differ overall. Does not account for the two anomalous runs specially."
+  },
+  "pairwise_mean_macro_f1_differences": {
+    "indobert_15g_vs_indobert_base_p1": {
+      "mean_diff": -0.008460299012678418
+    },
+    "indobert_15g_vs_indobertweet": {
+      "mean_diff": 0.08647516554083118
+    },
+    "indobert_15g_vs_indoroberta_15g": {
+      "mean_diff": -0.004133861042025733
+    },
+    "indobert_15g_vs_mbert": {
+      "mean_diff": 0.14832556117487306
+    },
+    "indobert_15g_vs_nusabert": {
+      "mean_diff": 0.0220895331280212
+    },
+    "indobert_15g_vs_xlmr": {
+      "mean_diff": 0.05497287247305527
+    },
+    "indobert_base_p1_vs_indobertweet": {
+      "mean_diff": 0.0949354645535096
+    },
+    "indobert_base_p1_vs_indoroberta_15g": {
+      "mean_diff": 0.004326437970652686
+    },
+    "indobert_base_p1_vs_mbert": {
+      "mean_diff": 0.15678586018755147
+    },
+    "indobert_base_p1_vs_nusabert": {
+      "mean_diff": 0.030549832140699618
+    },
+    "indobert_base_p1_vs_xlmr": {
+      "mean_diff": 0.06343317148573369
+    },
+    "indobertweet_vs_indoroberta_15g": {
+      "mean_diff": -0.09060902658285691
+    },
+    "indobertweet_vs_mbert": {
+      "mean_diff": 0.06185039563404188
+    },
+    "indobertweet_vs_nusabert": {
+      "mean_diff": -0.06438563241280998
+    },
+    "indobertweet_vs_xlmr": {
+      "mean_diff": -0.03150229306777591
+    },
+    "indoroberta_15g_vs_mbert": {
+      "mean_diff": 0.1524594222168988
+    },
+    "indoroberta_15g_vs_nusabert": {
+      "mean_diff": 0.026223394170046932
+    },
+    "indoroberta_15g_vs_xlmr": {
+      "mean_diff": 0.059106733515081
+    },
+    "mbert_vs_nusabert": {
+      "mean_diff": -0.12623602804685186
+    },
+    "mbert_vs_xlmr": {
+      "mean_diff": -0.09335268870181779
+    },
+    "nusabert_vs_xlmr": {
+      "mean_diff": 0.03288333934503407
+    }
+  },
+  "confidence_intervals_95_macro_f1": {
+    "indobert_15g": {
+      "mean": 0.5639469514545694,
+      "ci95_low": 0.5523943463289394,
+      "ci95_high": 0.5754995565801995,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    },
+    "indobert_base_p1": {
+      "mean": 0.5724072504672478,
+      "ci95_low": 0.5471879092172683,
+      "ci95_high": 0.5976265917172273,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    },
+    "indobertweet": {
+      "mean": 0.47747178591373823,
+      "ci95_low": 0.1865790738542905,
+      "ci95_high": 0.768364497973186,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    },
+    "indoroberta_15g": {
+      "mean": 0.5680808124965951,
+      "ci95_low": 0.5541284914462525,
+      "ci95_high": 0.5820331335469378,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    },
+    "mbert": {
+      "mean": 0.41562139027969636,
+      "ci95_low": 0.16730554928166697,
+      "ci95_high": 0.6639372312777257,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    },
+    "nusabert": {
+      "mean": 0.5418574183265482,
+      "ci95_low": 0.5070954961310944,
+      "ci95_high": 0.576619340522002,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    },
+    "xlmr": {
+      "mean": 0.5089740789815141,
+      "ci95_low": 0.48726614245781924,
+      "ci95_high": 0.5306820155052091,
+      "n_folds": 5,
+      "note": "Wald-type t-interval on n=5 matched folds; illustrative only, not a rigorous population estimate"
+    }
+  }
+}
