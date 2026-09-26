@@ -9,6 +9,7 @@ descriptive statistics) can be unit tested without spinning up a server.
 
 from __future__ import annotations
 
+import json
 import statistics
 from pathlib import Path
 from typing import Any
@@ -288,38 +289,72 @@ def build_analysis_state(results_dir: Path) -> dict[str, Any]:
 
 
 def build_live_demo_state(results_dir: Path) -> dict[str, Any]:
-    """Whether real, loadable model checkpoints exist.
+    """Whether a Phase 18 demo checkpoint exists and is loadable.
 
     ``models_dir`` is a sibling of ``results_dir`` in the project layout
     (``<project>/models``, ``<project>/results``) — the dashboard is
     normally launched with ``--results-dir results`` from the project
-    root, so ``results_dir.parent / "models"`` is the same ``models/``
-    directory the training pipeline would ever write a checkpoint into.
-    This function only checks for file existence; it never loads a model
-    or performs inference.
+    root, so ``results_dir.parent / "models" / "demo"`` is exactly where
+    ``scripts/train_demo_checkpoint.py`` writes a checkpoint. This
+    function only checks for file existence and reads the small metadata
+    JSON already written alongside the weights; it never loads the model
+    itself or performs inference (that only happens on an explicit
+    ``/api/infer`` request, handled elsewhere).
     """
     models_dir = results_dir.parent / "models"
     checkpoint_files: list[str] = []
     if models_dir.is_dir():
         checkpoint_files = [str(p.relative_to(models_dir)) for p in models_dir.rglob("*") if p.is_file()]
 
+    demo_root = models_dir / "demo"
+    checkpoints: list[dict[str, Any]] = []
+    if demo_root.is_dir():
+        for meta_path in sorted(demo_root.glob("*/*/checkpoint_meta.json")):
+            weights_path = meta_path.parent / "model.pt"
+            if not weights_path.is_file():
+                continue
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            checkpoints.append(
+                {
+                    "model_name": meta.get("model_name"),
+                    "fold_name": meta.get("fold_name"),
+                    "checkpoint_dir": str(meta_path.parent.relative_to(demo_root.parent.parent)),
+                    "test_macro_f1": meta.get("test_macro_f1"),
+                    "hf_model_id": meta.get("hf_model_id"),
+                }
+            )
+
+    # `checkpoint_available`/`checkpoint_files` preserve the Phase 17
+    # generic-file-existence contract exactly (any file under models/,
+    # regardless of layout). `checkpoints` is the new, Phase 18-specific,
+    # structured view used by the live-demo UI/inference wiring — a demo
+    # checkpoint is only usable there if it has both a metadata file and
+    # matching weights under the models/demo/<model>/<fold>/ layout.
     available = len(checkpoint_files) > 0
+    demo_ready = len(checkpoints) > 0
     return {
         "checkpoint_available": available,
         "checkpoint_files": checkpoint_files,
+        "checkpoints": checkpoints,
         "message": (
             "Live inference is available."
-            if available
+            if demo_ready
             else "Live inference is not available yet."
         ),
         "explanation": (
-            "A model checkpoint was found and could be loaded for inference."
-            if available
+            "An explicitly selected demo checkpoint is loaded below. This is "
+            "a research demonstration of one specific trained run, not a "
+            "comparison or a claim that this is the best-performing model."
+            if demo_ready
             else (
-                "The experiments produced evaluation results and predictions, "
-                "but the trained model weights were not persisted for later "
-                "inference. This dashboard is prepared to support live "
-                "inference once a checkpoint is added."
+                "The 7-model x 5-fold sweep produced evaluation results and "
+                "predictions, but did not persist trained model weights. "
+                "This dashboard is prepared to support live inference once "
+                "an explicitly selected demo checkpoint is trained (see "
+                "scripts/train_demo_checkpoint.py)."
             )
         ),
     }

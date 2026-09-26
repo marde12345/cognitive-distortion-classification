@@ -263,7 +263,31 @@
 
   <section id="live-demo-section">
     <h2>Live Demo</h2>
+    <p class="note">
+      Enter a piece of Indonesian text below. The model will estimate
+      which of the project's 11 cognitive-distortion categories best
+      matches the text, and how confident it is.
+    </p>
     <div id="live-demo-body" class="note">Checking…</div>
+    <div id="live-demo-form" style="display:none; margin-top:12px;">
+      <textarea id="demo-text-input" rows="3" style="width:100%; max-width:640px; font-family:inherit; padding:8px; border:1px solid var(--border); border-radius:4px;" placeholder="Type or paste a sentence…"></textarea>
+      <div style="margin-top:8px;">
+        <button id="demo-run-btn" style="background:var(--blue-500); color:#fff; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:600;">Classify</button>
+      </div>
+      <div id="demo-result" style="margin-top:14px;"></div>
+    </div>
+    <details style="margin-top:14px;">
+      <summary>How this works / important limitations</summary>
+      <p>A predicted category is the model's best guess among the 11
+      categories it was trained to recognize. Confidence is the model's
+      own estimated probability for that guess — higher is not a
+      guarantee of correctness.</p>
+      <p><strong>This is an experimental research model, not a clinical,
+      diagnostic, or medically validated tool.</strong> A prediction can
+      be wrong, and it must not be treated as a mental-health assessment,
+      diagnosis, or professional judgment about the person who wrote the
+      text.</p>
+    </details>
   </section>
 
   <section id="intro-section">
@@ -650,6 +674,7 @@ function plotImg(name, alt) {
 
 function renderLiveDemo(state) {
   const el = document.getElementById("live-demo-body");
+  const formEl = document.getElementById("live-demo-form");
   const live = (state.live_demo) || {};
   el.innerHTML = "";
   const box = document.createElement("div");
@@ -662,8 +687,59 @@ function renderLiveDemo(state) {
   p.style.marginTop = "6px";
   p.textContent = live.explanation || "";
   box.appendChild(p);
+
+  const checkpoints = live.checkpoints || [];
+  if (live.checkpoint_available && checkpoints.length > 0) {
+    const c = checkpoints[0];
+    const idBox = document.createElement("p");
+    idBox.style.marginTop = "6px";
+    idBox.innerHTML = "<strong>Explicitly selected demo checkpoint:</strong> model = " +
+      c.model_name + ", fold = " + c.fold_name +
+      " (test macro-F1 at training time: " + fmtMaybe(c.test_macro_f1) + "). " +
+      "This is a demonstration of one specific trained run, not a claim that " +
+      "this is the best-performing model among the seven evaluated.";
+    box.appendChild(idBox);
+    formEl.style.display = "block";
+  } else {
+    formEl.style.display = "none";
+  }
   el.appendChild(box);
 }
+
+async function runLiveDemo() {
+  const text = document.getElementById("demo-text-input").value;
+  const resultEl = document.getElementById("demo-result");
+  if (!text || !text.trim()) {
+    resultEl.innerHTML = "<div class='note'>Enter some text first.</div>";
+    return;
+  }
+  resultEl.innerHTML = "<div class='note'>Running…</div>";
+  try {
+    const res = await fetch("/api/infer", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text: text}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      resultEl.innerHTML = "<div class='note'>" + (data.error || "Inference failed.") + "</div>";
+      return;
+    }
+    let html = "<div><strong>Predicted category:</strong> " + data.predicted_label_name +
+      " (label " + data.predicted_label + ")</div>" +
+      "<div><strong>Confidence:</strong> " + (data.confidence * 100).toFixed(1) + "%</div>";
+    html += "<div class='note' style='margin-top:8px;'>Top " + data.top_k.length + " predictions:</div><ul class='note'>";
+    data.top_k.forEach(t => {
+      html += "<li>" + t.label_name + " — " + (t.probability * 100).toFixed(1) + "%</li>";
+    });
+    html += "</ul>";
+    resultEl.innerHTML = html;
+  } catch (e) {
+    resultEl.innerHTML = "<div class='note'>Could not reach the dashboard server.</div>";
+  }
+}
+
+document.getElementById("demo-run-btn").addEventListener("click", runLiveDemo);
 
 function fmtMaybe(x, digits) {
   return (typeof x === "number") ? x.toFixed(digits === undefined ? 4 : digits) : "—";

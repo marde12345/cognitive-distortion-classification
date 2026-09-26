@@ -66,6 +66,9 @@ class StateStore:
         self._lock = threading.Lock()
         self._state: dict = dashboard_state.build_dashboard_state(results_dir)
         self._stop = threading.Event()
+        self._demo_model = None
+        self._demo_model_lock = threading.Lock()
+        self._demo_model_error: str | None = None
 
     def get(self) -> dict:
         with self._lock:
@@ -95,6 +98,34 @@ class StateStore:
 
     def run_detail(self, model: str, fold: str) -> dict:
         return dashboard_state.build_run_detail(self._results_dir, model, fold)
+
+    def infer(self, text: str) -> dict:
+        """Run inference through the first available demo checkpoint.
+
+        Loads the checkpoint at most once (cached for the life of the
+        server process) and reuses it for every request. Raises the same
+        exceptions ``DemoModel``/``DemoModel.predict`` raise; the HTTP
+        handler is responsible for turning those into a JSON error
+        response — this method never fabricates a result.
+        """
+        with self._demo_model_lock:
+            if self._demo_model is None and self._demo_model_error is None:
+                live = self.get().get("live_demo", {})
+                checkpoints = live.get("checkpoints") or []
+                if not checkpoints:
+                    self._demo_model_error = "no demo checkpoint available"
+                else:
+                    from dashboard.inference import DemoModel
+
+                    checkpoint_dir = self._results_dir.parent / checkpoints[0]["checkpoint_dir"]
+                    try:
+                        self._demo_model = DemoModel(checkpoint_dir)
+                    except Exception as exc:  # noqa: BLE001 - surfaced to the caller, not swallowed
+                        self._demo_model_error = str(exc)
+            if self._demo_model is None:
+                raise RuntimeError(self._demo_model_error or "demo model unavailable")
+            model = self._demo_model
+        return model.predict(text)
 
 
 def make_handler(store: StateStore, poll_interval: float):
@@ -184,6 +215,37 @@ def make_handler(store: StateStore, poll_interval: float):
                 return
 
             self.send_error(404, "Not found")
+
+        def do_POST(self):  # noqa: N802 (stdlib method name)
+            if self.path != "/api/infer":
+                self.send_error(404, "Not found")
+                return
+
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            if length <= 0 or length > 20_000:
+                self._send_json({"error": "missing or oversized request body"}, status=400)
+                return
+            raw = self.rfile.read(length)
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send_json({"error": "request body must be JSON"}, status=400)
+                return
+
+            text = payload.get("text") if isinstance(payload, dict) else None
+            if not isinstance(text, str) or not text.strip():
+                self._send_json({"error": "'text' must be a non-empty string"}, status=400)
+                return
+
+            try:
+                result = store.infer(text)
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+                return
+            except Exception as exc:  # noqa: BLE001 - reported to caller, not swallowed
+                self._send_json({"error": f"inference unavailable: {exc}"}, status=503)
+                return
+            self._send_json(result)
 
     return Handler
 
