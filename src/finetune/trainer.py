@@ -56,7 +56,7 @@ def train_one_fold(
     cfg, paths,
     num_labels=11, max_len=128, batch_size=16, learning_rate=2e-5,
     weight_decay=0.01, warmup_ratio=0.1, num_epochs=5, patience=2,
-    fp16=True, device=None, fold_name="fold_0",
+    fp16=True, device=None, fold_name="fold_0", checkpoint_path=None,
 ):
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -175,6 +175,44 @@ def train_one_fold(
     val_metrics = {"macro_f1": val_f1}
     test_metrics = compute_metrics(test_labels_eval, test_preds, num_labels)
     test_metrics["history"] = history
+
+    if checkpoint_path is not None:
+        # Opt-in only: every existing caller (the sweep runner, the
+        # single-run script) omits this argument, so this branch never
+        # executes for them and their behavior is unchanged. Saves just
+        # enough to reconstruct inference later: weights, the exact
+        # Hugging Face model id (so the matching architecture/tokenizer
+        # can be re-downloaded), and the training/evaluation metadata
+        # needed to interpret the checkpoint. No dataset content is
+        # written here.
+        import os as _os
+        _os.makedirs(checkpoint_path, exist_ok=True)
+        torch.save(model.state_dict(), _os.path.join(checkpoint_path, "model.pt"))
+        checkpoint_meta = {
+            "model_name": model_name,
+            "hf_model_id": hf_model_id,
+            "num_labels": num_labels,
+            "max_len": max_len,
+            "fold_name": fold_name,
+            "seed": cfg["training"]["seed"],
+            "device_used": device,
+            "training_config": {
+                "batch_size": batch_size,
+                "learning_rate": learning_rate,
+                "weight_decay": weight_decay,
+                "warmup_ratio": warmup_ratio,
+                "configured_epochs": num_epochs,
+                "completed_epochs": len(history),
+                "patience": patience,
+                "class_weighted_loss": use_class_weight,
+            },
+            "val_macro_f1": val_metrics["macro_f1"],
+            "test_macro_f1": test_metrics["macro_f1"],
+            "test_weighted_f1": test_metrics["weighted_f1"],
+            "test_accuracy": test_metrics["accuracy"],
+        }
+        with open(_os.path.join(checkpoint_path, "checkpoint_meta.json"), "w") as _f:
+            json.dump(checkpoint_meta, _f, indent=2)
 
     return val_metrics, test_metrics, test_preds, test_probs, test_labels_eval
 
