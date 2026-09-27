@@ -181,5 +181,133 @@ class TestDashboardDistinguishesPhases(unittest.TestCase):
             self.assertIsNot(full_state["multiseed"], full_state["analysis"])
 
 
+class TestLiveMonitoring(unittest.TestCase):
+    """Phase 21 Step 2A: live-execution monitoring via results/multiseed/live_state.json."""
+
+    def _base_manifest(self):
+        return {
+            "models": ["indobert_base_p1"], "folds": ["fold_0", "fold_2"],
+            "seeds": [42, 43], "total_expected_runs": 4,
+        }
+
+    def test_no_live_state_file_reports_not_run(self):
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", self._base_manifest())
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertFalse(ms["live_state_available"])
+            self.assertIsNone(ms["current_run"])
+            self.assertEqual(ms["overall_status"], "not_run")
+
+    def test_current_run_exposed_while_in_progress(self):
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", self._base_manifest())
+            _write_json(results_dir / "multiseed" / "live_state.json", {
+                "completed_runs": 1, "failed_runs": 0, "skipped_runs": 0,
+                "current_run": {
+                    "model": "indobert_base_p1", "fold": "fold_2", "seed": 43,
+                    "started_at": "2026-09-27T07:00:00Z", "elapsed_seconds": 261.0,
+                },
+                "last_completed_run": None,
+            })
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertEqual(ms["overall_status"], "in_progress")
+            self.assertEqual(ms["current_run"]["model"], "indobert_base_p1")
+            self.assertEqual(ms["current_run"]["fold"], "fold_2")
+            self.assertEqual(ms["current_run"]["seed"], 43)
+            self.assertEqual(ms["current_run"]["elapsed_seconds"], 261.0)
+
+    def test_last_completed_metrics_exposed(self):
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", self._base_manifest())
+            _write_json(results_dir / "multiseed" / "live_state.json", {
+                "completed_runs": 1, "failed_runs": 0, "skipped_runs": 0,
+                "current_run": None,
+                "last_completed_run": {
+                    "model": "indobert_base_p1", "fold": "fold_0", "seed": 42,
+                    "completed_at": "2026-09-27T06:59:00Z",
+                    "macro_f1": 0.5812, "accuracy": 0.6714, "weighted_f1": 0.6728,
+                },
+            })
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertEqual(ms["last_completed_run"]["macro_f1"], 0.5812)
+            self.assertEqual(ms["last_completed_run"]["accuracy"], 0.6714)
+            self.assertEqual(ms["last_completed_run"]["weighted_f1"], 0.6728)
+
+    def test_failed_count_exposed_during_progress(self):
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", self._base_manifest())
+            _write_json(results_dir / "multiseed" / "logs" / "multiseed_sweep.json", {
+                "completed_runs": 1, "failed_runs": 1, "skipped_runs": 0, "runs": [],
+            })
+            _write_json(results_dir / "multiseed" / "live_state.json", {
+                "completed_runs": 1, "failed_runs": 1, "skipped_runs": 0,
+                "current_run": None, "last_completed_run": None,
+            })
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertEqual(ms["failed_runs"], 1)
+            self.assertEqual(ms["overall_status"], "in_progress")
+
+    def test_105_of_105_reports_complete(self):
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", {
+                "models": ["m"], "folds": ["f"], "seeds": [42], "total_expected_runs": 1,
+            })
+            _write_json(results_dir / "multiseed" / "logs" / "multiseed_sweep.json", {
+                "completed_runs": 1, "failed_runs": 0, "skipped_runs": 0, "runs": [],
+            })
+            _write_json(results_dir / "multiseed" / "live_state.json", {
+                "completed_runs": 1, "failed_runs": 0, "skipped_runs": 0,
+                "current_run": None,
+                "last_completed_run": {"model": "m", "fold": "f", "seed": 42,
+                                        "completed_at": "x", "macro_f1": 0.5,
+                                        "accuracy": 0.5, "weighted_f1": 0.5},
+            })
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertEqual(ms["overall_status"], "complete")
+
+    def test_malformed_live_state_does_not_crash_and_falls_back(self):
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", self._base_manifest())
+            live_path = results_dir / "multiseed" / "live_state.json"
+            live_path.parent.mkdir(parents=True, exist_ok=True)
+            live_path.write_text("{not valid json", encoding="utf-8")
+
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertFalse(ms["live_state_available"])
+            self.assertIsNone(ms["current_run"])
+            self.assertEqual(ms["overall_status"], "not_run")
+
+    def test_stale_live_state_with_current_run_never_reports_complete(self):
+        """Even if counts happen to equal the total, a still-populated
+        current_run must prevent a premature COMPLETE reading."""
+        with TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            results_dir.mkdir()
+            _write_json(results_dir / "multiseed" / "manifest.json", {
+                "models": ["m"], "folds": ["f"], "seeds": [42], "total_expected_runs": 1,
+            })
+            _write_json(results_dir / "multiseed" / "live_state.json", {
+                "completed_runs": 1, "failed_runs": 0, "skipped_runs": 0,
+                "current_run": {"model": "m", "fold": "f", "seed": 42,
+                                 "started_at": "x", "elapsed_seconds": 5.0},
+                "last_completed_run": None,
+            })
+            ms = multiseed_loader.build_multiseed_state(results_dir)
+            self.assertNotEqual(ms["overall_status"], "complete")
+            self.assertEqual(ms["overall_status"], "in_progress")
+
+
 if __name__ == "__main__":
     unittest.main()
