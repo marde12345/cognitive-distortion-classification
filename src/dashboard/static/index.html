@@ -942,25 +942,55 @@ function renderMultiseed(state) {
     return;
   }
 
-  if ((ms.completed_runs ?? 0) === 0 && (ms.failed_runs ?? 0) === 0) {
-    bodyEl.innerHTML = `<p class="note">No multi-seed runs have been executed yet. This is planned execution-readiness infrastructure only (Phase 20) — see <code>scripts/run_transformer_multiseed.py --dry-run</code>.</p>`;
+  let html = "";
+
+  if (total) {
+    const pct = ms.progress_percent ?? 0;
+    const filled = Math.round(pct / 5);
+    const bar = "█".repeat(filled) + "░".repeat(20 - filled);
+    html += `<div style="font-family: monospace; margin: 8px 0;">${bar} ${pct}%</div>`;
+  }
+
+  if (ms.overall_status === "in_progress" && ms.current_run) {
+    const cr = ms.current_run;
+    const mins = Math.floor((cr.elapsed_seconds || 0) / 60);
+    const secs = Math.floor((cr.elapsed_seconds || 0) % 60);
+    html += `<div class="note" style="margin-bottom:10px;">
+      <strong>Running:</strong> ${cr.model} — ${cr.fold} • seed_${cr.seed}
+      &nbsp; Elapsed: ${String(mins).padStart(2,"0")}:${String(secs).padStart(2,"0")}
+    </div>`;
+  }
+
+  if (ms.last_completed_run) {
+    const lc = ms.last_completed_run;
+    html += `<div class="note" style="margin-bottom:10px;">
+      <strong>Latest completed:</strong> ${lc.model} — ${lc.fold} • seed_${lc.seed}
+      &nbsp; Macro-F1: ${fmtNum(lc.macro_f1)} · Accuracy: ${fmtNum(lc.accuracy)} · Weighted-F1: ${fmtNum(lc.weighted_f1)}
+    </div>`;
+  }
+
+  if ((ms.completed_runs ?? 0) === 0 && (ms.failed_runs ?? 0) === 0 && ms.overall_status !== "in_progress") {
+    html += `<p class="note">No multi-seed runs have been executed yet. This is planned execution-readiness infrastructure only — see <code>scripts/run_transformer_multiseed.py --dry-run</code>.</p>`;
+    bodyEl.innerHTML = html;
     return;
   }
 
   const perModel = ms.per_model || [];
-  let html = `<table><thead><tr><th>Model</th><th>Macro-F1 mean</th><th>std</th><th>median</th><th>min</th><th>max</th><th>Completed</th><th>Failed</th><th>Anomalous</th></tr></thead><tbody>`;
-  html += perModel.map(m => `<tr>
-    <td>${m.model}</td>
-    <td>${fmtNum(m.macro_f1.mean)}</td>
-    <td>${fmtNum(m.macro_f1.std)}</td>
-    <td>${fmtNum(m.macro_f1.median)}</td>
-    <td>${fmtNum(m.macro_f1.min)}</td>
-    <td>${fmtNum(m.macro_f1.max)}</td>
-    <td>${m.n_completed}</td>
-    <td>${m.n_failed}</td>
-    <td>${m.n_anomalous}</td>
-  </tr>`).join("");
-  html += "</tbody></table>";
+  if (perModel.length > 0) {
+    html += `<table><thead><tr><th>Model</th><th>Macro-F1 mean</th><th>std</th><th>median</th><th>min</th><th>max</th><th>Completed</th><th>Failed</th><th>Anomalous</th></tr></thead><tbody>`;
+    html += perModel.map(m => `<tr>
+      <td>${m.model}</td>
+      <td>${fmtNum(m.macro_f1.mean)}</td>
+      <td>${fmtNum(m.macro_f1.std)}</td>
+      <td>${fmtNum(m.macro_f1.median)}</td>
+      <td>${fmtNum(m.macro_f1.min)}</td>
+      <td>${fmtNum(m.macro_f1.max)}</td>
+      <td>${m.n_completed}</td>
+      <td>${m.n_failed}</td>
+      <td>${m.n_anomalous}</td>
+    </tr>`).join("");
+    html += "</tbody></table>";
+  }
 
   if ((ms.anomalous_runs || []).length > 0) {
     html += `<p class="note"><strong>Anomalous runs (not excluded from statistics above):</strong> ` +
