@@ -32,6 +32,17 @@ def load_run_state(results_dir: Path) -> ReadResult:
     return safe_read_json(results_dir / "multiseed" / "logs" / "multiseed_sweep.json")
 
 
+def load_live_state(results_dir: Path) -> ReadResult:
+    """Read results/multiseed/live_state.json -- a lightweight, frequently
+    refreshed progress summary (current_run, last_completed_run, counts)
+    written by scripts/run_transformer_multiseed.py while training is in
+    flight. Written atomically (tmp file + rename) by the writer, but this
+    reader still treats a missing or malformed file as a soft failure like
+    every other artifact in this module -- a dashboard poll landing between
+    writes must never crash or show stale-as-if-live data."""
+    return safe_read_json(results_dir / "multiseed" / "live_state.json")
+
+
 def _run_name(fold: str, seed: int) -> str:
     return f"{fold}__seed_{seed}"
 
@@ -185,9 +196,11 @@ def build_multiseed_state(results_dir: Path) -> dict[str, Any]:
     """
     manifest_result = load_protocol_manifest(results_dir)
     run_state_result = load_run_state(results_dir)
+    live_state_result = load_live_state(results_dir)
 
     manifest = manifest_result.data or {}
     run_state = run_state_result.data or {}
+    live_state = live_state_result.data or {}
 
     planned_models = manifest.get("models", [])
     planned_folds = manifest.get("folds", [])
@@ -200,13 +213,25 @@ def build_multiseed_state(results_dir: Path) -> dict[str, Any]:
     failed_runs = run_state.get("failed_runs", 0) if run_state_result.ok else 0
     skipped_runs = run_state.get("skipped_runs", 0) if run_state_result.ok else 0
 
-    if total_expected is not None:
-        overall_status = (
-            "complete" if completed_runs == total_expected and total_expected > 0
-            else ("not_run" if completed_runs == 0 and failed_runs == 0 else "in_progress")
-        )
-    else:
+    current_run = live_state.get("current_run") if live_state_result.ok else None
+    last_completed_run = live_state.get("last_completed_run") if live_state_result.ok else None
+
+    if current_run is not None:
+        # A run is actively in flight -- this always wins, even if the
+        # (less frequently updated) run-state counts happen to already
+        # read as "all expected runs accounted for" in some race window.
+        overall_status = "in_progress"
+    elif total_expected is not None and completed_runs == total_expected and total_expected > 0:
+        overall_status = "complete"
+    elif completed_runs == 0 and failed_runs == 0 and skipped_runs == 0:
         overall_status = "not_run"
+    else:
+        overall_status = "in_progress"
+
+    progress_percent = (
+        round(100.0 * completed_runs / total_expected, 1)
+        if total_expected else 0.0
+    )
 
     # Anomalous runs are never auto-detected here; Phase 20 has not run any
     # experiments yet, so this starts empty. A human curates this set (as
@@ -226,11 +251,16 @@ def build_multiseed_state(results_dir: Path) -> dict[str, Any]:
         },
         "run_state_available": run_state_result.ok,
         "run_state_error": run_state_result.error,
+        "live_state_available": live_state_result.ok,
+        "live_state_error": live_state_result.error,
         "overall_status": overall_status,
         "completed_runs": completed_runs,
         "failed_runs": failed_runs,
         "skipped_runs": skipped_runs,
         "total_expected_runs": total_expected,
+        "progress_percent": progress_percent,
+        "current_run": current_run,
+        "last_completed_run": last_completed_run,
         "per_run": per_run,
         "per_model": build_per_model_aggregates(per_run, anomalous_runs),
         "per_fold": build_per_fold_aggregates(per_run),
