@@ -41,6 +41,14 @@ import loader
 SEEDS = [42, 43, 44]
 MULTISEED_ROOT = os.path.join("results", "multiseed")
 RUN_STATE_PATH = os.path.join(MULTISEED_ROOT, "logs", "multiseed_sweep.json")
+LIVE_STATE_PATH = os.path.join(MULTISEED_ROOT, "live_state.json")
+
+# How often the on-disk live_state.json is refreshed while a run is in
+# flight (cheap: a handful of small numbers), vs. how often a progress
+# block is actually printed to the terminal (coarser, so a multi-hour
+# run doesn't flood the terminal with a full block every couple seconds).
+LIVE_STATE_WRITE_INTERVAL_SECONDS = 3
+TERMINAL_PRINT_INTERVAL_SECONDS = 30
 
 
 def discover_transformer_models():
@@ -128,25 +136,148 @@ def save_run_state(state):
         json.dump(state, f, indent=2)
 
 
-def run_one(model, fold, seed):
+def load_live_state():
+    if os.path.exists(LIVE_STATE_PATH):
+        try:
+            with open(LIVE_STATE_PATH) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return None
+
+
+def new_live_state(experiment_id, total_expected_runs):
+    return {
+        "experiment_id": experiment_id,
+        "total_expected_runs": total_expected_runs,
+        "completed_runs": 0,
+        "failed_runs": 0,
+        "skipped_runs": 0,
+        "current_run": None,
+        "last_completed_run": None,
+        "updated_at": None,
+        "overall_status": "not_run",
+    }
+
+
+def _compute_overall_status(live_state):
+    total = live_state.get("total_expected_runs")
+    completed = live_state.get("completed_runs", 0)
+    if live_state.get("current_run") is not None:
+        return "in_progress"
+    if total is not None and completed == total and total > 0:
+        return "complete"
+    if completed == 0 and live_state.get("failed_runs", 0) == 0 and live_state.get("skipped_runs", 0) == 0:
+        return "not_run"
+    return "in_progress"
+
+
+def save_live_state(live_state):
+    """Atomic write (tmp file + rename) so a concurrent dashboard read never
+    sees a half-written JSON file."""
+    live_state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    live_state["overall_status"] = _compute_overall_status(live_state)
+    os.makedirs(os.path.dirname(LIVE_STATE_PATH), exist_ok=True)
+    tmp_path = LIVE_STATE_PATH + ".tmp"
+    with open(tmp_path, "w") as f:
+        json.dump(live_state, f, indent=2)
+    os.replace(tmp_path, LIVE_STATE_PATH)
+
+
+def read_run_metrics(model, fold, seed):
+    name = run_name(fold, seed)
+    metrics_path = os.path.join(MULTISEED_ROOT, "metrics", model, f"{name}.json")
+    try:
+        with open(metrics_path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+    return {
+        "macro_f1": data.get("macro_f1"),
+        "accuracy": data.get("accuracy"),
+        "weighted_f1": data.get("weighted_f1"),
+    }
+
+
+def print_progress_block(index, total, model, fold, seed, elapsed, live_state, running=True):
+    completed = live_state.get("completed_runs", 0)
+    failed = live_state.get("failed_runs", 0)
+    remaining = max(total - index + (0 if running else 1), 0)
+
+    print()
+    print(f"[{index}/{total}] {'RUNNING' if running else 'DONE'}")
+    print(f"model={model}")
+    print(f"fold={fold}")
+    print(f"seed={seed}")
+    if running:
+        mins, secs = divmod(int(elapsed), 60)
+        print(f"elapsed={mins:02d}:{secs:02d}")
+    print()
+    print(f"Completed: {completed}")
+    print(f"Failed: {failed}")
+    print(f"Remaining: {remaining}")
+
+    last = live_state.get("last_completed_run")
+    if last is not None:
+        print()
+        print("Last completed:")
+        print(f"model={last['model']}")
+        print(f"fold={last['fold']}")
+        print(f"seed={last['seed']}")
+        if last.get("macro_f1") is not None:
+            print(f"macro_f1={last['macro_f1']:.4f}")
+            print(f"accuracy={last['accuracy']:.4f}")
+            print(f"weighted_f1={last['weighted_f1']:.4f}")
+    sys.stdout.flush()
+
+
+def run_one(model, fold, seed, index, total, live_state):
+    """Run one (model, fold, seed) combination as a subprocess.
+
+    Raw child stdout/stderr is redirected to a per-run log file under
+    results/multiseed/logs/<model>/ (detailed record, never printed line
+    by line to the parent terminal), while the parent terminal only gets
+    a concise, periodically-refreshed progress block. results/multiseed/
+    live_state.json is refreshed on the same cadence so the dashboard's
+    polling always reflects genuinely current progress, not a stale
+    snapshot from before this run started.
+    """
+    log_dir = os.path.join(MULTISEED_ROOT, "logs", model)
+    os.makedirs(log_dir, exist_ok=True)
+    raw_log_path = os.path.join(log_dir, f"{run_name(fold, seed)}.stdout.log")
+
     cmd = [
         "uv", "run", "python", "scripts/run_transformer_multiseed_single.py",
         "--model", model, "--fold", fold, "--seed", str(seed),
     ]
-    print(f"Command: {' '.join(cmd)}")
-    print("-" * 60)
+
+    started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    live_state["current_run"] = {
+        "model": model, "fold": fold, "seed": seed,
+        "started_at": started_at, "elapsed_seconds": 0,
+    }
+    save_live_state(live_state)
+    print_progress_block(index, total, model, fold, seed, 0, live_state, running=True)
+
     t0 = time.time()
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,
-    )
-    for line in proc.stdout:
-        print(line, end="")
-        sys.stdout.flush()
-    proc.wait()
+    last_file_write = t0
+    last_terminal_print = t0
+    with open(raw_log_path, "w") as raw_log:
+        proc = subprocess.Popen(cmd, stdout=raw_log, stderr=subprocess.STDOUT)
+        while proc.poll() is None:
+            time.sleep(1)
+            now = time.time()
+            elapsed = now - t0
+            if now - last_file_write >= LIVE_STATE_WRITE_INTERVAL_SECONDS:
+                live_state["current_run"]["elapsed_seconds"] = round(elapsed, 1)
+                save_live_state(live_state)
+                last_file_write = now
+            if now - last_terminal_print >= TERMINAL_PRINT_INTERVAL_SECONDS:
+                print_progress_block(index, total, model, fold, seed, elapsed, live_state, running=True)
+                last_terminal_print = now
+        proc.wait()
     elapsed = time.time() - t0
-    print("-" * 60)
-    return proc.returncode, elapsed
+    return proc.returncode, elapsed, raw_log_path
 
 
 def main():
@@ -185,15 +316,23 @@ def main():
     if state is None:
         state = new_run_state(models, folds, SEEDS, device)
 
+    live_state = load_live_state()
+    if live_state is None:
+        live_state = new_live_state(state["experiment_id"], state["total_runs"])
+    # Always resync counters from the authoritative run-state on startup
+    # (e.g. after a restart), rather than trusting a possibly-stale
+    # live_state.json left over from an interrupted process.
+    live_state["completed_runs"] = state["completed_runs"]
+    live_state["failed_runs"] = state["failed_runs"]
+    live_state["skipped_runs"] = state["skipped_runs"]
+    live_state["current_run"] = None
+    save_live_state(live_state)
+
+    total = len(combos)
     for i, (model, fold, seed) in enumerate(combos, start=1):
         already_done = is_complete(model, fold, seed)
-        print(f"Progress: {i}/{len(combos)}")
-        print(f"Model: {model}  Fold: {fold}  Seed: {seed}")
 
         if already_done:
-            print("Status: SKIP — already completed")
-            print("=" * 60)
-            print()
             state["skipped_runs"] += 1
             state["runs"].append({
                 "model": model, "fold": fold, "seed": seed, "status": "skipped",
@@ -201,24 +340,27 @@ def main():
                 "elapsed_seconds": None, "exit_code": None,
             })
             save_run_state(state)
+
+            live_state["skipped_runs"] = state["skipped_runs"]
+            metrics = read_run_metrics(model, fold, seed)
+            if metrics is not None:
+                live_state["last_completed_run"] = {
+                    "model": model, "fold": fold, "seed": seed,
+                    "completed_at": None, **metrics,
+                }
+            save_live_state(live_state)
             continue
 
-        print("Status: RUNNING")
-        print("-" * 60)
         start_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        exit_code, elapsed = run_one(model, fold, seed)
+        exit_code, elapsed, raw_log_path = run_one(model, fold, seed, i, total, live_state)
         end_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         status = "completed" if exit_code == 0 else "failed"
-
-        print(f"Status: {'SUCCESS' if exit_code == 0 else 'FAILED'}")
-        print(f"Elapsed: {elapsed:.2f}s")
-        print("=" * 60)
-        print()
 
         state["runs"].append({
             "model": model, "fold": fold, "seed": seed, "status": status,
             "start_time": start_time, "end_time": end_time,
             "elapsed_seconds": round(elapsed, 2), "exit_code": exit_code,
+            "raw_log": raw_log_path,
         })
         if status == "completed":
             state["completed_runs"] += 1
@@ -226,9 +368,22 @@ def main():
             state["failed_runs"] += 1
         save_run_state(state)
 
+        live_state["current_run"] = None
+        live_state["completed_runs"] = state["completed_runs"]
+        live_state["failed_runs"] = state["failed_runs"]
+        if status == "completed":
+            metrics = read_run_metrics(model, fold, seed) or {}
+            live_state["last_completed_run"] = {
+                "model": model, "fold": fold, "seed": seed,
+                "completed_at": end_time, **metrics,
+            }
+        save_live_state(live_state)
+        print_progress_block(i, total, model, fold, seed, elapsed, live_state, running=False)
+
         if status == "failed":
             print(f"MULTI-SEED SWEEP STOPPED: {model} / {fold} / seed_{seed} failed (exit code {exit_code}).")
             print(f"Run state: {RUN_STATE_PATH}")
+            print(f"Raw log: {raw_log_path}")
             sys.exit(1)
 
     print("MULTI-SEED SWEEP COMPLETE.")
