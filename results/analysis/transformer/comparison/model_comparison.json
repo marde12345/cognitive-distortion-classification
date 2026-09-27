@@ -1,0 +1,143 @@
+{
+  "note": "Official per-model aggregates are the full 5-fold statistics from Phase 16 (results/analysis/transformer/aggregate_metrics.json). This file does not replace or recompute them. No automatic model selection was performed.",
+  "source_artifacts": [
+    "results/analysis/transformer/aggregate_metrics.json",
+    "results/analysis/transformer/anomaly_sensitivity.json",
+    "results/analysis/transformer/statistical_tests.json"
+  ],
+  "official_comparison_matrix": [
+    {
+      "model": "indobert_15g",
+      "macro_f1_mean": 0.5639469514545694,
+      "macro_f1_std_ddof1": 0.009304131506061566,
+      "macro_f1_min": 0.5527433311964235,
+      "macro_f1_max": 0.5738689716703441,
+      "macro_f1_median": 0.5664974143773404,
+      "macro_f1_range": 0.021125640473920626,
+      "macro_f1_cv": 0.016498238853962652,
+      "accuracy_mean": 0.6467787554009579,
+      "accuracy_std_ddof1": 0.014576240377880951,
+      "weighted_f1_mean": 0.6519983840063345,
+      "weighted_f1_std_ddof1": 0.014569377349122267,
+      "n_folds": 5,
+      "n_anomalous_folds": 0,
+      "anomalous_fold_names": ""
+    },
+    {
+      "model": "indobert_base_p1",
+      "macro_f1_mean": 0.5724072504672478,
+      "macro_f1_std_ddof1": 0.020310922509199508,
+      "macro_f1_min": 0.549337460608887,
+      "macro_f1_max": 0.5923101427509724,
+      "macro_f1_median": 0.5821109743038139,
+      "macro_f1_range": 0.04297268214208538,
+      "macro_f1_cv": 0.03548334248495279,
+      "accuracy_mean": 0.6643174516510658,
+      "accuracy_std_ddof1": 0.02068400839788472,
+      "weighted_f1_mean": 0.668676604599467,
+      "weighted_f1_std_ddof1": 0.020798949870518446,
+      "n_folds": 5,
+      "n_anomalous_folds": 0,
+      "anomalous_fold_names": ""
+    },
+    {
+      "model": "indobertweet",
+      "macro_f1_mean": 0.47747178591373823,
+      "macro_f1_std_ddof1": 0.23427651319540846,
+      "macro_f1_min": 0.05919044459190445,
+      "macro_f1_max": 0.5938044530041715,
+      "macro_f1_median": 0.5859789172672879,
+      "macro_f1_range": 0.534614008412267,
+      "macro_f1_cv": 0.49066043294489803,
+      "accuracy_mean": 0.6101289872117299,
+      "accuracy_std_ddof1": 0.07226522582499086,
+      "weighted_f1_mean": 0.5785137170022708,
+      "weighted_f1_std_ddof1": 0.1482595847044037,
+      "n_folds": 5,
+      "n_anomalous_folds": 1,
+      "anomalous_fold_names": "fold_1"
+    },
+    {
+      "model": "indoroberta_15g",
+      "macro_f1_mean": 0.5680808124965951,
+      "macro_f1_std_ddof1": 0.011236792780113282,
+      "macro_f1_min": 0.5579047751426903,
+      "macro_f1_max": 0.5864482057258648,
+      "macro_f1_median": 0.5667483110205536,
+      "macro_f1_range": 0.028543430583174434,
+      "macro_f1_cv": 0.019780271632005932,
+      "accuracy_mean": 0.6494330266256434,
+      "accuracy_std_ddof1": 0.021167014179002314,
+      "weighted_f1_mean": 0.6531358053174634,
+      "weighted_f1_std_ddof1": 0.021955631037790715,
+      "n_folds": 5,
+      "n_anomalous_folds": 0,
+      "anomalous_fold_names": ""
+    },
+    {
+      "model": "mbert",
+      "macro_f1_mean": 0.41562139027969636,
+      "macro_f1_std_ddof1": 0.19998634200335358,
+      "macro_f1_min": 0.058727141639902995,
+      "macro_f1_max": 0.5270905703469768,
+      "macro_f1_median": 0.4989211448424186,
+      "macro_f1_range": 0.4683634287070738,
+      "macro_f1_cv": 0.4811743251923845,
+      "accuracy_mean": 0.5499535052716581,
+      "accuracy_std_ddof1": 0.04299707159132692,
+      "weighted_f1_mean": 0.5176461292814842,
+      "weighted_f1_std_ddof1": 0.11812282215436049,
+      "n_folds": 5,
+      "n_anomalous_folds": 1,
+      "anomalous_fold_names": "fold_3"
+    },
+    {
+      "model": "nusabert",
+      "macro_f1_mean": 0.5418574183265482,
+      "macro_f1_std_ddof1": 0.02799623911601017,
+      "macro_f1_min": 0.5066879197242763,
+      "macro_f1_max": 0.5848333127285582,
+      "macro_f1_median": 0.5377458343021351,
+      "macro_f1_range": 0.07814539300428192,
+      "macro_f1_cv": 0.05166716957105189,
+      "accuracy_mean": 0.5845065330311282,
+      "accuracy_std_ddof1": 0.04151379148386742,
+      "weighted_f1_mean": 0.5765377700442897,
+      "weighted_f1_std_ddof1": 0.052707814519348056,
+      "n_folds": 5,
+      "n_anomalous_folds": 0,
+      "anomalous_fold_names": ""
+    },
+    {
+      "model": "xlmr",
+      "macro_f1_mean": 0.5089740789815141,
+      "macro_f1_std_ddof1": 0.01748293947082173,
+      "macro_f1_min": 0.4922894656257517,
+      "macro_f1_max": 0.5343681304461335,
+      "macro_f1_median": 0.5067858758438196,
+      "macro_f1_range": 0.042078664820381806,
+      "macro_f1_cv": 0.03434937100491656,
+      "accuracy_mean": 0.5399595072565102,
+      "accuracy_std_ddof1": 0.011139238667454513,
+      "weighted_f1_mean": 0.5246179671838711,
+      "weighted_f1_std_ddof1": 0.01589581684834953,
+      "n_folds": 5,
+      "n_anomalous_folds": 0,
+      "anomalous_fold_names": ""
+    }
+  ],
+  "sensitivity_analysis": {
+    "indobertweet/fold_1": {
+      "label": "Sensitivity analysis - NOT the official result. Official aggregate remains the full 5-fold result.",
+      "official_5fold_macro_f1_mean": 0.47747178591373823,
+      "sensitivity_4fold_macro_f1_mean_excluding_anomaly": 0.5820421212441966,
+      "delta_macro_f1_mean_excl_minus_incl": 0.1045703353304584
+    },
+    "mbert/fold_3": {
+      "label": "Sensitivity analysis - NOT the official result. Official aggregate remains the full 5-fold result.",
+      "official_5fold_macro_f1_mean": 0.41562139027969636,
+      "sensitivity_4fold_macro_f1_mean_excluding_anomaly": 0.5048449524396448,
+      "delta_macro_f1_mean_excl_minus_incl": 0.08922356215994842
+    }
+  }
+}
