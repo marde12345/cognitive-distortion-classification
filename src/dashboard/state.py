@@ -14,7 +14,7 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-from . import analysis_loader, data_loader
+from . import analysis_loader, data_loader, multiseed_loader
 
 KNOWN_STATUSES = {"completed", "running", "failed", "pending", "skipped"}
 
@@ -374,9 +374,11 @@ def build_dashboard_state(
     manifest_result = data_loader.load_manifest(results_dir)
 
     # Independent of manifest freshness: these read their own files under
-    # results/analysis/ and results/models/, and degrade on their own.
+    # results/analysis/, results/models/, and results/multiseed/, and
+    # degrade on their own.
     analysis = build_analysis_state(results_dir)
     live_demo = build_live_demo_state(results_dir)
+    multiseed = multiseed_loader.build_multiseed_state(results_dir)
 
     if not manifest_result.ok:
         if previous_state is not None:
@@ -385,6 +387,7 @@ def build_dashboard_state(
             stale["manifest_error"] = manifest_result.error
             stale["analysis"] = analysis
             stale["live_demo"] = live_demo
+            stale["multiseed"] = multiseed
             return stale
         return {
             "manifest_stale": True,
@@ -394,6 +397,7 @@ def build_dashboard_state(
             "completed_runs": [],
             "analysis": analysis,
             "live_demo": live_demo,
+            "multiseed": multiseed,
         }
 
     manifest = manifest_result.data
@@ -408,5 +412,6 @@ def build_dashboard_state(
         "folds": manifest.get("folds", []) or [],
         "analysis": analysis,
         "live_demo": live_demo,
+        "multiseed": multiseed,
     }
     return state

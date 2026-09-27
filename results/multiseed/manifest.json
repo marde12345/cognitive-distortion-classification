@@ -1,0 +1,30 @@
+{
+  "experiment_id": "phase20_multiseed_transformer_sweep",
+  "protocol_version": "1.0",
+  "created_at": "2026-09-27T06:12:30Z",
+  "models": [
+    "indobert_15g",
+    "indobert_base_p1",
+    "indobertweet",
+    "indoroberta_15g",
+    "mbert",
+    "nusabert",
+    "xlmr"
+  ],
+  "folds": [
+    "fold_0",
+    "fold_1",
+    "fold_2",
+    "fold_3",
+    "fold_4"
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "total_expected_runs": 105,
+  "dataset_csv_sha256": "ed154162554b68ba6980af8f3c7c01fa80a7962c4a0595fd61acafd142bdaea0",
+  "folds_json_sha256": "730cd82a912828e902cdab26eb498c640195eca4901fde606f849372c5693c54",
+  "notes": "This manifest describes the PLANNED Phase 20 multi-seed protocol only. It does not imply any run has been executed. The same fold definitions (folds.json, unmodified) are used for every model and every seed; the seed is the only intended experimental variation. Output for each run is written under results/multiseed/, never overwriting the Phase 13/15 single-seed sweep under results/metrics /results/logs /results/predictions."
+}

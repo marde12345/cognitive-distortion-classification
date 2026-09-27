@@ -129,6 +129,8 @@ def set_seed(seed=42):
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+        if hasattr(torch, "mps") and hasattr(torch.mps, "manual_seed"):
+            torch.mps.manual_seed(seed)
     except ImportError:
         pass
 

@@ -13,6 +13,7 @@ __pycache__/
 data/
 models/
 results/predictions/
+results/multiseed/predictions/
 
 # Exception: model *configuration* YAML files are small, tracked
 # provenance/reproducibility artifacts, not checkpoints. The `models/`

@@ -386,6 +386,32 @@
     <div class="plot-grid" id="model-comparison-plots"></div>
   </section>
 
+  <section id="multiseed-section">
+    <h2>Multi-Seed Experiment (Phase 20)</h2>
+    <p class="note">
+      This is a separate, planned experiment from the Phase 15 sweep and
+      Phase 19 comparison above: the same 7 models on the same 5 folds,
+      each repeated with 3 fixed random seeds (42, 43, 44) — 105 runs in
+      total. It is distinct infrastructure with its own result namespace
+      (<code>results/multiseed/</code>) and never overwrites the Phase
+      15/16/19 artifacts shown elsewhere on this page.
+    </p>
+    <div id="multiseed-headline" style="font-size:15px; font-weight:600; margin-bottom:12px; color: var(--navy-800);"></div>
+    <div class="stat-row" id="multiseed-stats"></div>
+    <div id="multiseed-body"></div>
+    <details style="margin-top:14px;">
+      <summary>Methodology &amp; limitations</summary>
+      <p>Each of the 5 folds is evaluated 3 times per model, once per seed,
+      to see how much a model's Macro-F1 varies purely due to random
+      initialization/shuffling rather than the data split. Macro-F1
+      averages the F1 score of all 11 categories equally, regardless of
+      how common each category is in the data. Anomalous runs (if any
+      occur) are shown explicitly, never silently removed from the
+      official statistics. No automatic model selection, ranking, or
+      "best model" label is computed from this data.</p>
+    </details>
+  </section>
+
   <section id="cross-fold-section">
     <h2>Cross-Fold Stability</h2>
     <p class="note">
@@ -884,9 +910,70 @@ function renderRuntime(state) {
   }
 }
 
+function renderMultiseed(state) {
+  const ms = state.multiseed || {};
+  const headline = document.getElementById("multiseed-headline");
+  const statsEl = document.getElementById("multiseed-stats");
+  const bodyEl = document.getElementById("multiseed-body");
+
+  const total = ms.total_expected_runs;
+  const statusLabel = {
+    not_run: "NOT RUN",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+  }[ms.overall_status] || "NOT RUN";
+
+  headline.textContent = `Multi-seed experiment: ${statusLabel}`;
+
+  const protocol = ms.protocol || {};
+  const stats = [
+    ["Planned", total != null ? `${(protocol.models || []).length} models × ${(protocol.folds || []).length} folds × ${(protocol.seeds || []).length} seeds = ${total}` : "—"],
+    ["Seeds", (protocol.seeds || []).join(", ") || "—"],
+    ["Completed", `${ms.completed_runs ?? 0} / ${total ?? "—"}`],
+    ["Failed", ms.failed_runs ?? 0],
+    ["Skipped", ms.skipped_runs ?? 0],
+  ];
+  statsEl.innerHTML = stats.map(([label, value]) =>
+    `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`
+  ).join("");
+
+  if (!ms.manifest_available) {
+    bodyEl.innerHTML = `<p class="note">No multi-seed protocol manifest found yet (${ms.manifest_error || "missing"}). This section will populate once results/multiseed/manifest.json exists.</p>`;
+    return;
+  }
+
+  if ((ms.completed_runs ?? 0) === 0 && (ms.failed_runs ?? 0) === 0) {
+    bodyEl.innerHTML = `<p class="note">No multi-seed runs have been executed yet. This is planned execution-readiness infrastructure only (Phase 20) — see <code>scripts/run_transformer_multiseed.py --dry-run</code>.</p>`;
+    return;
+  }
+
+  const perModel = ms.per_model || [];
+  let html = `<table><thead><tr><th>Model</th><th>Macro-F1 mean</th><th>std</th><th>median</th><th>min</th><th>max</th><th>Completed</th><th>Failed</th><th>Anomalous</th></tr></thead><tbody>`;
+  html += perModel.map(m => `<tr>
+    <td>${m.model}</td>
+    <td>${fmtNum(m.macro_f1.mean)}</td>
+    <td>${fmtNum(m.macro_f1.std)}</td>
+    <td>${fmtNum(m.macro_f1.median)}</td>
+    <td>${fmtNum(m.macro_f1.min)}</td>
+    <td>${fmtNum(m.macro_f1.max)}</td>
+    <td>${m.n_completed}</td>
+    <td>${m.n_failed}</td>
+    <td>${m.n_anomalous}</td>
+  </tr>`).join("");
+  html += "</tbody></table>";
+
+  if ((ms.anomalous_runs || []).length > 0) {
+    html += `<p class="note"><strong>Anomalous runs (not excluded from statistics above):</strong> ` +
+      ms.anomalous_runs.map(a => `${a.model}/${a.fold}/seed_${a.seed}`).join(", ") + `</p>`;
+  }
+
+  bodyEl.innerHTML = html;
+}
+
 function renderAnalysisSections(state) {
   renderLiveDemo(state);
   renderModelComparison(state);
+  renderMultiseed(state);
   renderCrossFold(state);
   renderAnomalies(state);
   renderPerClass(state);
